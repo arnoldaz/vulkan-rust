@@ -847,14 +847,15 @@ fn main() -> Result<()> {
     // App
 
     let mut app = unsafe { App::create(&window)? };
+    let mut minimized = false;
     event_loop.run(move |event, elwt| {
         match event {
             // Request a redraw when all events were processed.
             Event::AboutToWait => window.request_redraw(),
             Event::WindowEvent { event, .. } => match event {
-                // Render a frame if our Vulkan app is not being destroyed.
-                WindowEvent::RedrawRequested if !elwt.exiting() => unsafe { app.render(&window) }.unwrap(),
-                // Destroy our Vulkan app.
+                WindowEvent::RedrawRequested if !elwt.exiting() && !minimized => {
+                    unsafe { app.render(&window) }.unwrap();
+                },
                 WindowEvent::CloseRequested => {
                     elwt.exit();
                     unsafe { app.device.device_wait_idle().unwrap(); }
@@ -873,7 +874,14 @@ fn main() -> Result<()> {
                     },
                     _ => (),
                 },
-                WindowEvent::Resized(_) => { app.resized = true },
+                WindowEvent::Resized(size) => {
+                    if size.width == 0 || size.height == 0 {
+                        minimized = true;
+                    } else {
+                        minimized = false;
+                        app.resized = true;
+                    }
+                }
                 _ => {}
             }
             _ => {}
