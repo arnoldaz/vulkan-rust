@@ -21,6 +21,7 @@ use winit::event::{ElementState, Event, KeyEvent, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowBuilder};
+use winit::platform::windows::WindowBuilderExtWindows;
 
 use std::collections::HashSet;
 use std::ffi::CStr;
@@ -60,15 +61,18 @@ fn main() -> Result<()> {
     let mut app = unsafe { App::create(&window)? };
     let mut minimized = false;
     event_loop.run(move |event, elwt| {
-        elwt.set_control_flow(ControlFlow::Poll);
+        // elwt.set_control_flow(ControlFlow::Poll);
         match event {
-            // Request a redraw when all events were processed.
+            
             Event::AboutToWait => window.request_redraw(),
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::RedrawRequested if !elwt.exiting() && !minimized => {
+                    // print!("redraw\n");
                     unsafe { app.render(&window) }.unwrap();
                 },
+                
                 WindowEvent::CloseRequested => {
+                    print!("close \n");
                     elwt.exit();
                     unsafe { app.device.device_wait_idle().unwrap(); }
                     unsafe { app.destroy(); }
@@ -87,16 +91,26 @@ fn main() -> Result<()> {
                     _ => (),
                 },
                 WindowEvent::Resized(size) => {
+                    print!("resized\n");
                     if size.width == 0 || size.height == 0 {
                         minimized = true;
                     } else {
                         minimized = false;
                         app.resized = true;
+                        unsafe { app.render(&window) }.unwrap();
                     }
+                },
+                WindowEvent::Moved(_) if !elwt.exiting() && !minimized => {
+                    print!("moved\n");
+                    unsafe { app.render(&window) }.unwrap();
+                },
+                _ => {
+                    // print!("2{:?}", event.to_string());
                 }
-                _ => {}
             }
-            _ => {}
+            _ => {
+                // print!("1{:?}", dbg!(event));
+            }
         }
     })?;
 
