@@ -641,7 +641,7 @@ pub unsafe fn create_index_buffer(
     Ok(())
 }
 
-unsafe fn create_buffer(
+pub unsafe fn create_buffer(
     instance: &Instance,
     device: &Device,
     data: &AppData,
@@ -674,13 +674,28 @@ unsafe fn create_buffer(
     Ok((buffer, buffer_memory))
 }
 
-unsafe fn copy_buffer(
+pub unsafe fn copy_buffer(
     device: &Device,
     data: &AppData,
     source: vk::Buffer,
     destination: vk::Buffer,
     size: vk::DeviceSize,
 ) -> Result<()> {
+    let command_buffer = begin_single_time_commands(device, data)?;
+
+    let regions = vk::BufferCopy::builder().size(size);
+    device.cmd_copy_buffer(command_buffer, source, destination, &[regions]);
+
+    end_single_time_commands(device, data, command_buffer)?;
+
+    Ok(())
+}
+
+
+pub unsafe fn begin_single_time_commands(
+    device: &Device,
+    data: &AppData,
+) -> Result<vk::CommandBuffer> {
     let info = vk::CommandBufferAllocateInfo::builder()
         .level(vk::CommandBufferLevel::PRIMARY)
         .command_pool(data.command_pool)
@@ -693,15 +708,20 @@ unsafe fn copy_buffer(
 
     device.begin_command_buffer(command_buffer, &info)?;
 
-    let regions = vk::BufferCopy::builder().size(size);
-    device.cmd_copy_buffer(command_buffer, source, destination, &[regions]);
+    Ok(command_buffer)
+}
 
+pub unsafe fn end_single_time_commands(
+    device: &Device,
+    data: &AppData,
+    command_buffer: vk::CommandBuffer,
+) -> Result<()> {
     device.end_command_buffer(command_buffer)?;
 
     let command_buffers = &[command_buffer];
     let info = vk::SubmitInfo::builder()
         .command_buffers(command_buffers);
-    
+
     device.queue_submit(data.graphics_queue, &[info], vk::Fence::null())?;
     device.queue_wait_idle(data.graphics_queue)?;
 
@@ -710,7 +730,9 @@ unsafe fn copy_buffer(
     Ok(())
 }
 
-unsafe fn get_memory_type_index(
+
+
+pub unsafe fn get_memory_type_index(
     instance: &Instance,
     data: &AppData,
     properties: vk::MemoryPropertyFlags,

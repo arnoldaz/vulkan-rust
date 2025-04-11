@@ -10,6 +10,7 @@ mod vertex;
 mod app;
 mod vulkan;
 mod swapchain;
+mod image;
 
 use app::App;
 use vertex::{Vertex, VERTICES};
