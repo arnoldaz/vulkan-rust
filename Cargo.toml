@@ -1,5 +1,5 @@
 [package]
-name = "vulkan_rust"
+name = "kubilas"
 version = "0.1.0"
 edition = "2021"
 
