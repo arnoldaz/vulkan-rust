@@ -54,7 +54,7 @@ fn main() -> Result<()> {
     // Window
     let event_loop = EventLoop::new()?;
     let window = WindowBuilder::new()
-        .with_title("Liurauras ass (Animal Well 2)")
+        .with_title("Kubilas")
         .with_inner_size(LogicalSize::new(1024, 768))
         .build(&event_loop)?;
 

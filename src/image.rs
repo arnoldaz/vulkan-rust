@@ -44,21 +44,44 @@ use std::ptr::copy_nonoverlapping as memcpy;
 use std::fs::File;
 
 
+pub unsafe fn create_image_view(
+    device: &Device,
+    image: vk::Image,
+    format: vk::Format,
+) -> Result<vk::ImageView> {
+    let subresource_range = vk::ImageSubresourceRange::builder()
+        .aspect_mask(vk::ImageAspectFlags::COLOR)
+        .base_mip_level(0)
+        .level_count(1)
+        .base_array_layer(0)
+        .layer_count(1);
+
+    let info = vk::ImageViewCreateInfo::builder()
+        .image(image)
+        .view_type(vk::ImageViewType::_2D)
+        .format(format)
+        .subresource_range(subresource_range);
+
+    Ok(device.create_image_view(&info, None)?)
+}
+
 pub unsafe fn create_texture_image(
     instance: &Instance,
     device: &Device,
     data: &mut AppData,
 ) -> Result<()> {
-    let image = File::open("texture2.png")?;
+    let image = File::open("revenant.png")?;
 
     let decoder = png::Decoder::new(image);
     let mut reader = decoder.read_info()?;
 
     let mut pixels = vec![0;  reader.info().raw_bytes()];
     reader.next_frame(&mut pixels)?;
-
+    
     let size = reader.info().raw_bytes() as u64;
     let (width, height) = reader.info().size();
+    println!("width: {}", width.to_string());
+    println!("height: {}", height.to_string());
 
     let (staging_buffer, staging_buffer_memory) = create_buffer(
         instance,
@@ -124,6 +147,16 @@ pub unsafe fn create_texture_image(
 
     device.destroy_buffer(staging_buffer, None);
     device.free_memory(staging_buffer_memory, None);
+
+    Ok(())
+}
+
+pub unsafe fn create_texture_image_view(device: &Device, data: &mut AppData) -> Result<()> {
+    data.texture_image_view = create_image_view(
+        device,
+        data.texture_image,
+        vk::Format::R8G8B8A8_SRGB,
+    )?;
 
     Ok(())
 }
@@ -264,8 +297,7 @@ pub unsafe fn copy_buffer_to_image(
         .image_subresource(subresource)
         .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
         .image_extent(vk::Extent3D { width, height, depth: 1 });
-
-
+    
     device.cmd_copy_buffer_to_image(
         command_buffer,
         buffer,
@@ -273,8 +305,32 @@ pub unsafe fn copy_buffer_to_image(
         vk::ImageLayout::TRANSFER_DST_OPTIMAL,
         &[region],
     );
-
+    
     end_single_time_commands(device, data, command_buffer)?;
+
+    Ok(())
+}
+
+
+pub unsafe fn create_texture_sampler(device: &Device, data: &mut AppData) -> Result<()> {
+    let info = vk::SamplerCreateInfo::builder()
+        .mag_filter(vk::Filter::LINEAR)
+        .min_filter(vk::Filter::LINEAR)
+        .address_mode_u(vk::SamplerAddressMode::REPEAT)
+        .address_mode_v(vk::SamplerAddressMode::REPEAT)
+        .address_mode_w(vk::SamplerAddressMode::REPEAT)
+        .anisotropy_enable(true)
+        .max_anisotropy(16.0)
+        .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
+        .unnormalized_coordinates(false)
+        .compare_enable(false)
+        .compare_op(vk::CompareOp::ALWAYS)
+        .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+        .mip_lod_bias(0.0)
+        .min_lod(0.0)
+        .max_lod(0.0);
+        
+    data.texture_sampler = device.create_sampler(&info, None)?;
 
     Ok(())
 }
