@@ -37,7 +37,7 @@ type Mat4 = cgmath::Matrix4<f32>;
 
 use crate::image::{create_texture_image, create_texture_image_view, create_texture_sampler};
 use crate::swapchain::{create_swapchain, create_swapchain_image_views};
-use crate::vulkan::{create_command_buffers, create_command_pool, create_descriptor_pool, create_descriptor_set_layout, create_descriptor_sets, create_framebuffers, create_index_buffer, create_instance, create_logical_device, create_pipeline, create_render_pass, create_sync_objects, create_uniform_buffers, create_vertex_buffer, pick_physical_device, UniformBufferObject, MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
+use crate::vulkan::{MAX_FRAMES_IN_FLIGHT, UniformBufferObject, VALIDATION_ENABLED, create_command_buffers, create_command_pool, create_depth_objects, create_descriptor_pool, create_descriptor_set_layout, create_descriptor_sets, create_framebuffers, create_index_buffer, create_instance, create_logical_device, create_pipeline, create_render_pass, create_sync_objects, create_uniform_buffers, create_vertex_buffer, pick_physical_device};
 
 use std::ptr::copy_nonoverlapping as memcpy;
 
@@ -68,8 +68,9 @@ impl App {
         create_render_pass(&instance, &device, &mut data)?;
         create_descriptor_set_layout(&device, &mut data)?;
         create_pipeline(&device, &mut data)?;
-        create_framebuffers(&device, &mut data)?;
         create_command_pool(&instance, &device, &mut data)?;
+        create_depth_objects(&instance, &device, &mut data)?;
+        create_framebuffers(&device, &mut data)?;
         create_texture_image(&instance, &device, &mut data)?;
         create_texture_image_view(&device, &mut data)?;
         create_texture_sampler(&device, &mut data)?;
@@ -200,6 +201,7 @@ impl App {
         create_swapchain_image_views(&self.device, &mut self.data)?;
         create_render_pass(&self.instance, &self.device, &mut self.data)?;
         create_pipeline(&self.device, &mut self.data)?;
+        create_depth_objects(&self.instance, &self.device, &mut self.data)?;
         create_framebuffers(&self.device, &mut self.data)?;
         create_uniform_buffers(&self.instance, &self.device, &mut self.data)?;
         create_descriptor_pool(&self.device, &mut self.data)?;
@@ -212,6 +214,9 @@ impl App {
     }
 
     unsafe fn destroy_swapchain(&mut self) {
+        self.device.destroy_image_view(self.data.depth_image_view, None);
+        self.device.free_memory(self.data.depth_image_memory, None);
+        self.device.destroy_image(self.data.depth_image, None);
         self.device.destroy_descriptor_pool(self.data.descriptor_pool, None);
         self.data.uniform_buffers
             .iter()
@@ -246,14 +251,23 @@ impl App {
             vec3(0.0, 0.0, 1.0),
         );
 
-        let mut proj = cgmath::perspective(
+        let correction = Mat4::new(
+            1.0,  0.0,       0.0, 0.0,
+            // We're also flipping the Y-axis with this line's `-1.0`.
+            0.0, -1.0,       0.0, 0.0,
+            0.0,  0.0, 1.0 / 2.0, 0.0,
+            0.0,  0.0, 1.0 / 2.0, 1.0,
+        );
+
+
+        let proj = correction * cgmath::perspective(
             Deg(45.0),
             self.data.swapchain_extent.width as f32 / self.data.swapchain_extent.height as f32,
             0.1,
             10.0,
         );
 
-        proj[1][1] *= -1.0;
+        // proj[1][1] *= -1.0;
 
         let ubo = UniformBufferObject { model, view, proj };
 
@@ -308,4 +322,7 @@ pub struct AppData {
     pub texture_image_memory: vk::DeviceMemory,
     pub texture_image_view: vk::ImageView,
     pub texture_sampler: vk::Sampler,
+    pub depth_image: vk::Image,
+    pub depth_image_memory: vk::DeviceMemory,
+    pub depth_image_view: vk::ImageView,
 }
