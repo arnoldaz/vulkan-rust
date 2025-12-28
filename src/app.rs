@@ -37,9 +37,17 @@ type Mat4 = cgmath::Matrix4<f32>;
 
 use crate::image::{create_texture_image, create_texture_image_view, create_texture_sampler};
 use crate::swapchain::{create_swapchain, create_swapchain_image_views};
+use crate::vertex::Vertex;
 use crate::vulkan::{MAX_FRAMES_IN_FLIGHT, UniformBufferObject, VALIDATION_ENABLED, create_command_buffers, create_command_pool, create_depth_objects, create_descriptor_pool, create_descriptor_set_layout, create_descriptor_sets, create_framebuffers, create_index_buffer, create_instance, create_logical_device, create_pipeline, create_render_pass, create_sync_objects, create_uniform_buffers, create_vertex_buffer, pick_physical_device};
+use crate::model::{load_model};
 
 use std::ptr::copy_nonoverlapping as memcpy;
+
+
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+use std::io::BufReader;
+
 
 /// Our Vulkan app.
 #[derive(Clone, Debug)]
@@ -74,6 +82,7 @@ impl App {
         create_texture_image(&instance, &device, &mut data)?;
         create_texture_image_view(&device, &mut data)?;
         create_texture_sampler(&device, &mut data)?;
+        load_model(&mut data)?;
         create_vertex_buffer(&instance, &device, &mut data)?;
         create_index_buffer(&instance, &device, &mut data)?;
         create_uniform_buffers(&instance, &device, &mut data)?;
@@ -310,6 +319,8 @@ pub struct AppData {
     pub render_finished_semaphores: Vec<vk::Semaphore>,
     pub in_flight_fences: Vec<vk::Fence>,
     pub images_in_flight: Vec<vk::Fence>,
+    pub vertices: Vec<Vertex>,
+    pub indices: Vec<u32>,
     pub vertex_buffer: vk::Buffer,
     pub vertex_buffer_memory: vk::DeviceMemory,
     pub index_buffer: vk::Buffer,

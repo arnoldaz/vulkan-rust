@@ -71,6 +71,7 @@ pub unsafe fn create_texture_image(
     device: &Device,
     data: &mut AppData,
 ) -> Result<()> {
+    // let image = File::open("revenant.png")?;
     let image = File::open("revenant.png")?;
 
     let decoder = png::Decoder::new(image);
@@ -83,6 +84,11 @@ pub unsafe fn create_texture_image(
     let (width, height) = reader.info().size();
     println!("width: {}", width.to_string());
     println!("height: {}", height.to_string());
+
+    let color_type = reader.info().color_type;
+    if color_type != png::ColorType::Rgba {
+        panic!("Invalid texture image.");
+    }
 
     let (staging_buffer, staging_buffer_memory) = create_buffer(
         instance,

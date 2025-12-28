@@ -11,9 +11,10 @@ mod app;
 mod vulkan;
 mod swapchain;
 mod image;
+mod model;
 
 use app::App;
-use vertex::{Vertex, VERTICES};
+use vertex::{Vertex};
 
 use thiserror::Error;
 use anyhow::{anyhow, Result};
