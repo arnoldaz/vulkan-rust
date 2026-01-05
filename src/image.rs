@@ -72,7 +72,7 @@ pub unsafe fn create_texture_image(
     data: &mut AppData,
 ) -> Result<()> {
     // let image = File::open("revenant.png")?;
-    let image = File::open("revenant.png")?;
+    let image = File::open("cube.png")?;
 
     let decoder = png::Decoder::new(image);
     let mut reader = decoder.read_info()?;

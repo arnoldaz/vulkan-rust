@@ -42,11 +42,11 @@ use std::hash::{Hash, Hasher};
 
 
 pub fn load_model(data: &mut AppData) -> Result<()> {
-    let mut reader = BufReader::new(File::open("horse.obj")?);
+    let mut reader = BufReader::new(File::open("cube.obj")?);
 
     let (models, _) = tobj::load_obj_buf(
         &mut reader,
-        &tobj::LoadOptions { triangulate: true, ..Default::default() },
+        &tobj::LoadOptions { triangulate: true, single_index: true, ..Default::default() },
         |_| Ok(Default::default()),
     )?;
 
@@ -72,6 +72,9 @@ pub fn load_model(data: &mut AppData) -> Result<()> {
                 ),
             };
 
+            // data.vertices.push(vertex);
+            // data.indices.push(data.indices.len() as u32);
+
             if let Some(index) = unique_vertices.get(&vertex) {
                 data.indices.push(*index as u32);
             } else {
@@ -84,7 +87,7 @@ pub fn load_model(data: &mut AppData) -> Result<()> {
         }
     }
 
-
+    println!("Loaded {} vertices, {} indices", data.vertices.len(), data.indices.len());
 
     Ok(())
 }

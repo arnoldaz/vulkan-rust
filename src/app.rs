@@ -247,7 +247,7 @@ impl App {
     }
 
     unsafe fn update_uniform_buffer(&self, image_index: usize) -> Result<()> {
-        let time = self.start.elapsed().as_secs_f32();
+        let time = self.start.elapsed().as_secs_f32() / 2.0;
 
         let model = Mat4::from_axis_angle(
             vec3(0.0, 0.0, 1.0),
@@ -255,7 +255,7 @@ impl App {
         );
 
         let view = Mat4::look_at_rh(
-            point3(2.0, 2.0, 2.0),
+            point3(5.0, 5.0, 5.0),
             point3(0.0, 0.0, 0.0),
             vec3(0.0, 0.0, 1.0),
         );
