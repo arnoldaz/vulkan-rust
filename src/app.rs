@@ -126,6 +126,7 @@ impl App {
     
         self.data.images_in_flight[image_index as usize] = self.data.in_flight_fences[self.frame];
 
+        self.update_command_buffer(image_index)?;
         self.update_uniform_buffer(image_index)?;
 
         // let wait_semaphores = &[self.data.image_available_semaphore];
@@ -248,13 +249,92 @@ impl App {
         self.device.destroy_swapchain_khr(self.data.swapchain, None);
     }
 
+    unsafe fn update_command_buffer(&mut self, image_index: usize) -> Result<()> {
+        let command_buffer = self.data.command_buffers[image_index];
+
+        self.device.reset_command_buffer(
+            command_buffer,
+            vk::CommandBufferResetFlags::empty(),
+        )?;
+
+        let time = self.start.elapsed().as_secs_f32();
+        let model = Mat4::from_axis_angle(
+            vec3(0.0, 0.0, 1.0),
+            Deg(90.0) * time / 2.0
+        );
+
+        let model_bytes = std::slice::from_raw_parts(
+            &model as *const Mat4 as *const u8,
+            size_of::<Mat4>()
+        );
+
+        let info = vk::CommandBufferBeginInfo::builder()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+
+        self.device.begin_command_buffer(command_buffer, &info)?;
+
+        let render_area = vk::Rect2D::builder()
+            .offset(vk::Offset2D::default())
+            .extent(self.data.swapchain_extent);
+
+        let color_clear_value = vk::ClearValue {
+            color: vk::ClearColorValue {
+                float32: [0.0, 0.0, 0.0, 1.0],
+            },
+        };
+
+        let depth_clear_value = vk::ClearValue {
+            depth_stencil: vk::ClearDepthStencilValue {
+                depth: 1.0,
+                stencil: 0,
+            },
+        };
+
+        let clear_values = &[color_clear_value, depth_clear_value];
+
+        let info = vk::RenderPassBeginInfo::builder()
+            .render_pass(self.data.render_pass)
+            .framebuffer(self.data.framebuffers[image_index])
+            .render_area(render_area)
+            .clear_values(clear_values);
+
+        self.device.cmd_begin_render_pass(command_buffer, &info, vk::SubpassContents::INLINE);
+        self.device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.data.pipeline);
+        self.device.cmd_bind_vertex_buffers(command_buffer, 0, &[self.data.vertex_buffer], &[0]);
+        self.device.cmd_bind_index_buffer(command_buffer, self.data.index_buffer, 0, vk::IndexType::UINT32);
+
+        self.device.cmd_bind_descriptor_sets(
+            command_buffer,
+            vk::PipelineBindPoint::GRAPHICS,
+            self.data.pipeline_layout,
+            0,
+            &[self.data.descriptor_sets[image_index]],
+            &[],
+        );
+
+        self.device.cmd_push_constants(
+            command_buffer,
+            self.data.pipeline_layout,
+            vk::ShaderStageFlags::VERTEX,
+            0,
+            model_bytes,
+        );
+
+        self.device.cmd_draw_indexed(command_buffer, self.data.indices.len() as u32, 1, 0, 0, 0);
+        self.device.cmd_end_render_pass(command_buffer);
+        self.device.end_command_buffer(command_buffer)?;
+
+        Ok(())
+    }
+
     unsafe fn update_uniform_buffer(&self, image_index: usize) -> Result<()> {
         let time = self.start.elapsed().as_secs_f32() / 2.0;
 
-        let model = Mat4::from_axis_angle(
-            vec3(0.0, 0.0, 1.0),
-            Deg(90.0) * time
-        );
+        // now in push constants
+        // let model = Mat4::from_axis_angle(
+        //     vec3(0.0, 0.0, 1.0),
+        //     Deg(90.0) * time
+        // );
 
         let view = Mat4::look_at_rh(
             point3(5.0, 5.0, 5.0),
@@ -280,7 +360,7 @@ impl App {
 
         // proj[1][1] *= -1.0;
 
-        let ubo = UniformBufferObject { model, view, proj };
+        let ubo = UniformBufferObject { view, proj };
 
         let memory = self.device.map_memory(
             self.data.uniform_buffers_memory[image_index],
@@ -290,7 +370,7 @@ impl App {
         )?;
         
         memcpy(&ubo, memory.cast(), 1);
-        
+
         self.device.unmap_memory(self.data.uniform_buffers_memory[image_index]);
 
         Ok(())

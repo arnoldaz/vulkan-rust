@@ -358,9 +358,16 @@ pub unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()>
         .attachments(attachments)
         .blend_constants([0.0, 0.0, 0.0, 0.0]);
 
+    let vert_push_constant_range = vk::PushConstantRange::builder()
+        .stage_flags(vk::ShaderStageFlags::VERTEX)
+        .offset(0)
+        .size(64 /* 16 × 4 byte floats */);
+
     let set_layouts = &[data.descriptor_set_layout];
+    let push_constant_ranges = &[vert_push_constant_range];
     let layout_info = vk::PipelineLayoutCreateInfo::builder()
-        .set_layouts(set_layouts);
+        .set_layouts(set_layouts)
+        .push_constant_ranges(push_constant_ranges);
 
     data.pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
 
@@ -492,7 +499,7 @@ pub unsafe fn create_command_pool(instance: &Instance, device: &Device, data: &m
     let indices = QueueFamilyIndices::get(instance, data, data.physical_device)?;
 
     let info = vk::CommandPoolCreateInfo::builder()
-        .flags(vk::CommandPoolCreateFlags::empty()) // Optional.
+        .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
         .queue_family_index(indices.graphics);
 
     data.command_pool = device.create_command_pool(&info, None)?;
@@ -508,59 +515,76 @@ pub unsafe fn create_command_buffers(device: &Device, data: &mut AppData) -> Res
 
     data.command_buffers = device.allocate_command_buffers(&allocate_info)?;
 
-    for (i, command_buffer) in data.command_buffers.iter().enumerate() {
-        let inheritance = vk::CommandBufferInheritanceInfo::builder();
+    // let model = Mat4::from_axis_angle(
+    //     vec3(0.0, 0.0, 1.0),
+    //     Deg(0.0)
+    // );
+
+    // let model_bytes = std::slice::from_raw_parts(
+    //     &model as *const Mat4 as *const u8,
+    //     size_of::<Mat4>()
+    // );
+
+    // for (i, command_buffer) in data.command_buffers.iter().enumerate() {
+    //     let inheritance = vk::CommandBufferInheritanceInfo::builder();
     
-        let info = vk::CommandBufferBeginInfo::builder()
-            .flags(vk::CommandBufferUsageFlags::empty()) // Optional.
-            .inheritance_info(&inheritance);             // Optional.
+    //     let info = vk::CommandBufferBeginInfo::builder()
+    //         .flags(vk::CommandBufferUsageFlags::empty()) // Optional.
+    //         .inheritance_info(&inheritance);             // Optional.
     
-        device.begin_command_buffer(*command_buffer, &info)?;
+    //     device.begin_command_buffer(*command_buffer, &info)?;
 
-        let render_area = vk::Rect2D::builder()
-            .offset(vk::Offset2D::default())
-            .extent(data.swapchain_extent);
+    //     let render_area = vk::Rect2D::builder()
+    //         .offset(vk::Offset2D::default())
+    //         .extent(data.swapchain_extent);
 
-        let color_clear_value = vk::ClearValue {
-            color: vk::ClearColorValue {
-                float32: [0.0, 0.0, 0.0, 1.0],
-            },
-        };
+    //     let color_clear_value = vk::ClearValue {
+    //         color: vk::ClearColorValue {
+    //             float32: [0.0, 0.0, 0.0, 1.0],
+    //         },
+    //     };
 
-        let depth_clear_value = vk::ClearValue {
-            depth_stencil: vk::ClearDepthStencilValue {
-                depth: 1.0,
-                stencil: 0,
-            },
-        };
+    //     let depth_clear_value = vk::ClearValue {
+    //         depth_stencil: vk::ClearDepthStencilValue {
+    //             depth: 1.0,
+    //             stencil: 0,
+    //         },
+    //     };
 
-        let clear_values = &[color_clear_value, depth_clear_value];
-        let info = vk::RenderPassBeginInfo::builder()
-            .render_pass(data.render_pass)
-            .framebuffer(data.framebuffers[i])
-            .render_area(render_area)
-            .clear_values(clear_values);
+    //     let clear_values = &[color_clear_value, depth_clear_value];
+    //     let info = vk::RenderPassBeginInfo::builder()
+    //         .render_pass(data.render_pass)
+    //         .framebuffer(data.framebuffers[i])
+    //         .render_area(render_area)
+    //         .clear_values(clear_values);
 
-        device.cmd_begin_render_pass(
-            *command_buffer, &info, vk::SubpassContents::INLINE);
+    //     device.cmd_begin_render_pass(
+    //         *command_buffer, &info, vk::SubpassContents::INLINE);
 
-        device.cmd_bind_pipeline(
-            *command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline);
-        device.cmd_bind_vertex_buffers(*command_buffer, 0, &[data.vertex_buffer], &[0]);
-        device.cmd_bind_index_buffer(*command_buffer, data.index_buffer, 0, vk::IndexType::UINT32);
-        // device.cmd_draw(*command_buffer, VERTICES.len() as u32, 1, 0, 0);
-        device.cmd_bind_descriptor_sets(
-            *command_buffer,
-            vk::PipelineBindPoint::GRAPHICS,
-            data.pipeline_layout,
-            0,
-            &[data.descriptor_sets[i]],
-            &[],
-        );
-        device.cmd_draw_indexed(*command_buffer, data.indices.len() as u32, 1, 0, 0, 0);
-        device.cmd_end_render_pass(*command_buffer);
-        device.end_command_buffer(*command_buffer)?;
-    }
+    //     device.cmd_bind_pipeline(
+    //         *command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline);
+    //     device.cmd_bind_vertex_buffers(*command_buffer, 0, &[data.vertex_buffer], &[0]);
+    //     device.cmd_bind_index_buffer(*command_buffer, data.index_buffer, 0, vk::IndexType::UINT32);
+    //     // device.cmd_draw(*command_buffer, VERTICES.len() as u32, 1, 0, 0);
+    //     device.cmd_bind_descriptor_sets(
+    //         *command_buffer,
+    //         vk::PipelineBindPoint::GRAPHICS,
+    //         data.pipeline_layout,
+    //         0,
+    //         &[data.descriptor_sets[i]],
+    //         &[],
+    //     );
+    //     device.cmd_push_constants(
+    //         *command_buffer,
+    //         data.pipeline_layout,
+    //         vk::ShaderStageFlags::VERTEX,
+    //         0,
+    //         model_bytes,
+    //     );
+    //     device.cmd_draw_indexed(*command_buffer, data.indices.len() as u32, 1, 0, 0, 0);
+    //     device.cmd_end_render_pass(*command_buffer);
+    //     device.end_command_buffer(*command_buffer)?;
+    // }
 
     Ok(())
 }
@@ -798,7 +822,6 @@ pub unsafe fn get_memory_type_index(
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct UniformBufferObject {
-    pub model: Mat4,
     pub view: Mat4,
     pub proj: Mat4,
 }
