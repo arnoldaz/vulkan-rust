@@ -28,7 +28,7 @@ use vulkanalia::vk::KhrSwapchainExtension;
 use vulkanalia::bytecode::Bytecode;
 
 use std::mem::size_of;
-use cgmath::{point3, vec2, vec3, Deg};
+use cgmath::{Deg, Euler, Matrix4, Quaternion, Rad, Vector3, point3, vec2, vec3};
 use std::time::Instant;
 
 type Vec2 = cgmath::Vector2<f32>;
@@ -249,6 +249,18 @@ impl App {
         self.device.destroy_swapchain_khr(self.data.swapchain, None);
     }
 
+    pub fn trs_matrix(
+        translation: Vector3<f32>,
+        rotation: Quaternion<f32>,
+        scale: Vector3<f32>,
+    ) -> Matrix4<f32> {
+        let t = Matrix4::from_translation(translation);
+        let r = Matrix4::from(rotation);
+        let s = Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z);
+
+        t * r * s
+    }
+
     unsafe fn update_command_buffer(&mut self, image_index: usize) -> Result<()> {
         let command_buffer = self.data.command_buffers[image_index];
 
@@ -258,15 +270,13 @@ impl App {
         )?;
 
         let time = self.start.elapsed().as_secs_f32();
-        let model = Mat4::from_axis_angle(
-            vec3(0.0, 0.0, 1.0),
-            Deg(90.0) * time / 2.0
-        );
+        
+        // let model = Mat4::from_axis_angle(
+        //     vec3(0.0, 0.0, 10.0),
+        //     Deg(90.0) * time / 2.0
+        // );
 
-        let model_bytes = std::slice::from_raw_parts(
-            &model as *const Mat4 as *const u8,
-            size_of::<Mat4>()
-        );
+
 
         let info = vk::CommandBufferBeginInfo::builder()
             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
@@ -312,6 +322,22 @@ impl App {
             &[],
         );
 
+        // first cube
+        let model = Self::trs_matrix(
+            Vector3 { x: 1.0, y: 0.0, z: 0.0 },
+            Quaternion::from(Euler {
+                x: Rad(0.0),
+                y: Rad(std::f32::consts::FRAC_PI_2) * time,
+                z: Rad(0.0),
+            }),
+            Vector3 { x: 1.0, y: 1.0, z: 1.0 },
+        );
+
+        let model_bytes = std::slice::from_raw_parts(
+            &model as *const Mat4 as *const u8,
+            size_of::<Mat4>()
+        );
+
         self.device.cmd_push_constants(
             command_buffer,
             self.data.pipeline_layout,
@@ -321,6 +347,37 @@ impl App {
         );
 
         self.device.cmd_draw_indexed(command_buffer, self.data.indices.len() as u32, 1, 0, 0, 0);
+
+        // second cube
+        let model = Self::trs_matrix(
+            Vector3 { x: -2.0, y: 0.0, z: 1.0 },
+            Quaternion::from(Euler {
+                x: Rad(0.0),
+                y: Rad(0.0),
+                z: Rad(std::f32::consts::FRAC_PI_2) * time / 2.0,
+            }),
+            Vector3 { x: 1.0, y: 1.0, z: 1.0 },
+        );
+
+        let model_bytes = std::slice::from_raw_parts(
+            &model as *const Mat4 as *const u8,
+            size_of::<Mat4>()
+        );
+
+        self.device.cmd_push_constants(
+            command_buffer,
+            self.data.pipeline_layout,
+            vk::ShaderStageFlags::VERTEX,
+            0,
+            model_bytes,
+        );
+
+        self.device.cmd_draw_indexed(command_buffer, self.data.indices.len() as u32, 1, 0, 0, 0);
+
+
+
+
+
         self.device.cmd_end_render_pass(command_buffer);
         self.device.end_command_buffer(command_buffer)?;
 
@@ -355,7 +412,7 @@ impl App {
             Deg(45.0),
             self.data.swapchain_extent.width as f32 / self.data.swapchain_extent.height as f32,
             0.1,
-            10.0,
+            50.0,
         );
 
         // proj[1][1] *= -1.0;
