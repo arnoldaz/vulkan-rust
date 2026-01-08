@@ -22,7 +22,7 @@ use log::*;
 use vulkanalia::loader::{LibloadingLoader, LIBRARY};
 use vulkanalia::window as vk_window;
 use vulkanalia::prelude::v1_0::*;
-use vulkanalia::vk::ExtDebugUtilsExtension;
+use vulkanalia::vk::{ExtDebugUtilsExtension};
 use vulkanalia::vk::KhrSurfaceExtension;
 use vulkanalia::vk::KhrSwapchainExtension;
 use vulkanalia::bytecode::Bytecode;
@@ -89,6 +89,8 @@ pub unsafe fn create_texture_image(
     if color_type != png::ColorType::Rgba {
         panic!("Invalid texture image.");
     }
+
+    // TODO: consider using vkMemoryToImageCopy instead of buffer after upgrading to 1.4
 
     let (staging_buffer, staging_buffer_memory) = create_buffer(
         instance,
